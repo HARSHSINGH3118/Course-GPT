@@ -28,21 +28,21 @@ export default function Register() {
         placeholder="Name"
         className="w-full border p-2 mb-2 rounded"
         value={form.name}
-        onChange={(e) => setForm({ ...form, name: e.target.value })}
+        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
       />
       <input
         type="email"
         placeholder="Email"
         className="w-full border p-2 mb-2 rounded"
         value={form.email}
-        onChange={(e) => setForm({ ...form, email: e.target.value })}
+        onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
       />
       <input
         type="password"
         placeholder="Password"
         className="w-full border p-2 mb-4 rounded"
         value={form.password}
-        onChange={(e) => setForm({ ...form, password: e.target.value })}
+        onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
       />
       <button
         type="submit"

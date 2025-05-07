@@ -1,145 +1,109 @@
-// frontend/src/components/CourseEditor.jsx
 import React, { useState, useEffect } from "react";
 import {
   fetchTemplates,
   generateContent,
   updateCourse,
 } from "../services/api.js";
-export default function CourseEditor({ course, onSaved }) {
-  // guard against missing prop
-  if (!course) return null;
+import { FiX, FiRefreshCw } from "react-icons/fi";
 
+export default function CourseEditor({ course, onClose, onSaved }) {
   const [templates, setTemplates] = useState([]);
   const [templateId, setTemplateId] = useState("");
-  const [variables, setVariables] = useState({});
+  const [vars, setVars] = useState({});
   const [content, setContent] = useState(course.content || "");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
-  // load templates on mount
   useEffect(() => {
-    async function loadTemplates() {
-      try {
-        const res = await fetchTemplates();
-        setTemplates(res.data);
-      } catch (err) {
-        console.error("Failed to load templates", err);
-      }
-    }
-    loadTemplates();
+    fetchTemplates().then((res) => setTemplates(res.data));
   }, []);
 
-  // parse {{foo}} placeholders
-  const getPlaceholders = (prompt) => {
-    const matches = prompt.match(/{{\s*[\w]+\s*}}/g) || [];
-    return matches.map((m) => m.replace(/[{}]/g, "").trim());
-  };
+  const placeholders =
+    templates
+      .find((t) => t._id === templateId)
+      ?.promptText.match(/{{\s*\w+\s*}}/g)
+      .map((m) => m.replace(/[{}]/g, "").trim()) || [];
 
-  const selectedTemplate = templates.find((t) => t._id === templateId);
-  const placeholders = selectedTemplate
-    ? getPlaceholders(selectedTemplate.promptText)
-    : [];
-
-  const handleVarChange = (key) => (e) => {
-    setVariables((prev) => ({ ...prev, [key]: e.target.value }));
-  };
-
-  const handleGenerate = async () => {
-    if (!templateId) {
-      setError("Please select a template.");
-      return;
-    }
-    for (let key of placeholders) {
-      if (!variables[key]) {
-        setError(`Please fill in "${key}".`);
-        return;
-      }
-    }
-    setError("");
+  const gen = async () => {
     setLoading(true);
-    try {
-      const res = await generateContent({ templateId, variables });
-      setContent(res.data.content);
-    } catch (err) {
-      console.error(err);
-      setError("Generation failed – check console.");
-    } finally {
-      setLoading(false);
-    }
+    const res = await generateContent({ templateId, variables: vars });
+    setContent(res.data.content);
+    setLoading(false);
   };
 
-  const handleSave = async () => {
-    try {
-      await updateCourse(course._id, { content });
-      onSaved();
-    } catch (err) {
-      console.error(err);
-      setError("Save failed – check console.");
-    }
+  const save = async () => {
+    await updateCourse(course._id, { content });
+    onSaved();
   };
 
   return (
-    <div className="border p-4 rounded mb-4">
-      <h2 className="text-xl font-semibold mb-2">{course.title}</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
+        >
+          <FiX size={24} />
+        </button>
+        <div className="p-6">
+          <h2 className="text-xl font-bold mb-4">{course.title}</h2>
 
-      <label className="block mb-1 font-medium">Template:</label>
-      <select
-        className="w-full border p-2 rounded mb-4"
-        value={templateId}
-        onChange={(e) => {
-          setTemplateId(e.target.value);
-          setVariables({});
-          setError("");
-        }}
-      >
-        <option value="">-- select one --</option>
-        {templates.map((t) => (
-          <option key={t._id} value={t._id}>
-            {t.name}
-          </option>
-        ))}
-      </select>
+          <div className="mb-4">
+            <label className="block mb-1 font-medium">Template</label>
+            <select
+              className="w-full border p-2 rounded"
+              onChange={(e) => {
+                setTemplateId(e.target.value);
+                setVars({});
+              }}
+            >
+              <option value="">Select a template</option>
+              {templates.map((t) => (
+                <option key={t._id} value={t._id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-      {placeholders.length > 0 && (
-        <div className="mb-4">
-          {placeholders.map((key) => (
-            <div key={key} className="mb-2">
-              <label className="block mb-1">{key}:</label>
-              <input
-                type="text"
-                className="w-full border p-2 rounded"
-                value={variables[key] || ""}
-                onChange={handleVarChange(key)}
-              />
-            </div>
-          ))}
+          {placeholders.length > 0 &&
+            placeholders.map((key) => (
+              <div className="mb-4" key={key}>
+                <label className="block mb-1">{key}</label>
+                <input
+                  type="text"
+                  className="w-full border p-2 rounded"
+                  value={vars[key] || ""}
+                  onChange={(e) =>
+                    setVars((v) => ({ ...v, [key]: e.target.value }))
+                  }
+                />
+              </div>
+            ))}
+
+          <div className="flex gap-3 mb-4">
+            <button
+              onClick={gen}
+              disabled={loading}
+              className="flex items-center bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              <FiRefreshCw className="mr-2 animate-spin" />{" "}
+              {loading ? "Generating…" : "Generate"}
+            </button>
+            <button
+              onClick={save}
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
+            >
+              Save
+            </button>
+          </div>
+
+          <textarea
+            className="w-full h-48 border p-3 rounded resize-none"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
         </div>
-      )}
-
-      {error && <div className="text-red-500 mb-2">{error}</div>}
-
-      <div className="flex gap-2 mb-4">
-        <button
-          onClick={handleGenerate}
-          disabled={loading}
-          className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
-        >
-          {loading ? "Generating…" : "Generate"}
-        </button>
-        <button
-          onClick={handleSave}
-          className="bg-green-600 text-white px-4 py-2 rounded"
-        >
-          Save
-        </button>
       </div>
-
-      <textarea
-        className="w-full border p-2 rounded"
-        rows={10}
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-      />
     </div>
   );
 }

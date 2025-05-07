@@ -1,65 +1,57 @@
 // backend/controllers/templateController.js
 require("dotenv").config();
 const Template = require("../models/Template");
-const fetch = require("node-fetch");
+const { CohereClient } = require("cohere-ai");
 
-const HF_TOKEN = process.env.HF_API_TOKEN;
-if (!HF_TOKEN) console.warn("⚠️  No HF_API_TOKEN in .env");
+// Initialize the Cohere client
+const cohere = new CohereClient({ apiKey: process.env.COHERE_API_KEY });
+if (!process.env.COHERE_API_KEY) {
+  console.warn("⚠️  No COHERE_API_KEY in .env");
+}
+
+exports.getTemplates = async (req, res) => {
+  try {
+    const templates = await Template.find();
+    res.json(templates);
+  } catch (err) {
+    console.error("Error fetching templates:", err);
+    res.status(500).json({ msg: "Failed to load templates" });
+  }
+};
 
 exports.generateContent = async (req, res) => {
   const { templateId, variables } = req.body;
-  const tpl = await Template.findById(templateId);
-  if (!tpl) return res.status(404).json({ msg: "Template not found" });
-
-  // build your prompt
-  let prompt = tpl.promptText;
-  for (let [k, v] of Object.entries(variables)) {
-    prompt = prompt.replace(new RegExp(`{{${k}}}`, "g"), v);
-  }
-
   try {
-    const response = await fetch(
-      "https://api-inference.huggingface.co/models/bigscience/bloom-560m",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${HF_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            max_new_tokens: 300, // adjust as needed
-            return_full_text: false,
-          },
-        }),
-      }
-    );
+    const tpl = await Template.findById(templateId);
+    if (!tpl) return res.status(404).json({ msg: "Template not found" });
 
-    const data = await response.json();
-    console.log("HF response:", data);
-
-    // handle the two common shapes
-    let content;
-    if (Array.isArray(data)) {
-      // e.g. [ { generated_text: "..." } ]
-      content = data[0]?.generated_text;
-    } else if (data.generated_text) {
-      // e.g. { generated_text: "..." }
-      content = data.generated_text;
-    } else if (data.error) {
-      throw new Error(data.error);
+    // Fill placeholders into the prompt
+    let prompt = tpl.promptText;
+    for (let [key, val] of Object.entries(variables)) {
+      prompt = prompt.replace(new RegExp(`{{${key}}}`, "g"), val);
     }
 
-    if (!content) {
-      // log full response for debugging
-      console.error("Unexpected HF response shape:", data);
-      throw new Error("AI returned no text");
+    // Request generation from Cohere
+    const response = await cohere.generate({
+      model: "xlarge", // free-tier model; you can choose 'small' or 'medium' too
+      prompt,
+      maxTokens: 200,
+      temperature: 0.7,
+    });
+
+    console.log("Cohere response:", response);
+
+    // Extract the generated text
+    const generations = response.generations || response.body?.generations;
+    if (!Array.isArray(generations) || !generations[0]?.text) {
+      console.error("Cohere returned no text:", response);
+      return res.status(500).json({ msg: "AI returned no content" });
     }
 
+    const content = generations[0].text.trim();
     res.json({ content });
   } catch (err) {
-    console.error("HF Inference error:", err);
+    console.error("TemplateController.generateContent error:", err);
     res.status(500).json({ msg: err.message || "AI generation failed" });
   }
 };

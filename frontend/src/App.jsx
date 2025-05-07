@@ -1,10 +1,10 @@
+import React, { useContext } from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
 } from "react-router-dom";
-import { useContext } from "react";
 import { AuthProvider, AuthContext } from "./context/AuthContext.jsx";
 import Navbar from "./components/Navbar.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -32,7 +32,6 @@ export default function App() {
   return (
     <AuthProvider>
       <Router>
-        <Navbar />
         <div className="container mx-auto p-4">
           <AppRoutes />
         </div>

@@ -14,6 +14,10 @@ exports.getCourses = async (req, res) => {
 
 exports.updateCourse = async (req, res) => {
   const { id } = req.params;
-  const course = await Course.findByIdAndUpdate(id, req.body, { new: true });
+  const course = await Course.findByIdAndUpdate(
+    id,
+    { content: req.body.content },
+    { new: true }
+  );
   res.json(course);
 };

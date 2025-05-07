@@ -1,11 +1,20 @@
-import React from "react";
+import React, { useState } from "react";
 import CourseList from "../components/CourseList.jsx";
+import CourseEditor from "../components/CourseEditor.jsx";
 
 export default function Dashboard() {
+  const [selected, setSelected] = useState(null);
+
   return (
-    <div>
-      <h1 className="text-3xl font-bold mb-4">My Courses</h1>
-      <CourseList />
-    </div>
+    <>
+      <CourseList onSelect={setSelected} />
+      {selected && (
+        <CourseEditor
+          course={selected}
+          onClose={() => setSelected(null)}
+          onSaved={() => setSelected(null)}
+        />
+      )}
+    </>
   );
 }

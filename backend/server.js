@@ -1,4 +1,3 @@
-// backend/server.js
 require("dotenv").config();
 console.log("Loaded HF_API_TOKEN:", process.env.HF_API_TOKEN);
 
